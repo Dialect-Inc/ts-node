@@ -28,6 +28,7 @@ import {
 } from './module-type-classifier';
 import { createResolverFunctions } from './resolver-functions';
 import type { createEsmHooks as createEsmHooksFn } from './esm';
+import { createPathMapper } from './path-mapping'
 import {
   installCommonjsResolveHooksIfNecessary,
   ModuleConstructorWithInternals,
@@ -332,6 +333,17 @@ export interface CreateOptions {
    */
   tsTrace?: (str: string) => void;
   /**
+   * Enable TypeScript path mapping in the ESM loader, CommonJS loader, or both.
+   * Today, the default is 'esm' to map paths in the experimental ESM loader but not
+   * CommonJS.  In the next major release, the default will become 'both'.
+   *
+   * Note: If you use tsconfig-paths, be sure to disable it before enabling ts-node's CommonJS path mapper.
+   * tsconfig-paths already maps paths in CommonJS but not ESM, and it may conflict with ts-node's mapper.
+   *
+   * See: https://www.typescriptlang.org/docs/handbook/module-resolution.html#path-mapping
+   */
+  experimentalPathMapping?: 'both' | 'esm' | 'cjs' | 'none';
+  /**
    * Enable native ESM support.
    *
    * For details, see https://typestrong.org/ts-node/docs/imports#native-ecmascript-modules
@@ -510,6 +522,18 @@ export interface Service {
   installSourceMapSupport(): void;
   /** @internal */
   transpileOnly: boolean;
+  /**
+   * @internal
+   *
+   * Map import paths to candidates according to the `paths` compiler
+   * option. Returns `null` if the specifier did not match and was not
+   * mapped.
+   */
+  mapPath(specifier: string): string[] | null;
+  /** @internal */
+  commonjsPathMapping: boolean;
+  /** @internal */
+  esmPathMapping: boolean;
   /** @internal */
   projectLocalResolveHelper: ProjectLocalResolveHelper;
   /** @internal */
@@ -766,6 +790,21 @@ export function createFromPreloadedConfig(
       }
     }
   }
+
+	if (
+    ![undefined, null, 'both', 'esm', 'cjs', 'none'].includes(
+      options.experimentalPathMapping
+    )
+  ) {
+    throw new Error(
+      `experimentalPathMapping must be one of: "both", "esm", "cjs", "none"`
+    );
+  }
+  const experimentalPathMapping = options.experimentalPathMapping ?? 'esm';
+  const commonjsPathMapping =
+    experimentalPathMapping === 'both' || experimentalPathMapping === 'cjs';
+  const esmPathMapping =
+    experimentalPathMapping === 'both' || experimentalPathMapping === 'esm';
 
   // Install source map support and read from memory cache.
   function installSourceMapSupport() {
@@ -1421,6 +1460,8 @@ export function createFromPreloadedConfig(
     });
   }
 
+  const mapPath = createPathMapper(config.options);
+
   const getNodeEsmResolver = once(() =>
     (
       require('../dist-raw/node-internal-modules-esm-resolve') as typeof _nodeInternalModulesEsmResolve
@@ -1465,6 +1506,9 @@ export function createFromPreloadedConfig(
     addDiagnosticFilter,
     installSourceMapSupport,
     transpileOnly,
+		mapPath,
+		commonjsPathMapping,
+		esmPathMapping,
     projectLocalResolveHelper,
     getNodeEsmResolver,
     getNodeEsmGetFormat,
