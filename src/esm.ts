@@ -219,7 +219,7 @@ export function createEsmHooks(tsNodeService: Service) {
         const parentPath =
           parentUrl.protocol === 'file:' && fileURLToPath(parentUrl);
         if (parentPath && !tsNodeService.ignored(parentPath)) {
-          const mappedSpecifiers = tsNodeService.mapPath(specifier);
+          const mappedSpecifiers = tsNodeService.mapPath(specifier, parentPath);
           if (mappedSpecifiers) {
             candidateSpecifiers = [
               ...mappedSpecifiers.map((path) => pathToFileURL(path).toString()),

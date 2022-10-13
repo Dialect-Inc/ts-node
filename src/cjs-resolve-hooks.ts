@@ -57,7 +57,7 @@ export function installCommonjsResolveHooksIfNecessary(tsNodeService: Service) {
         parent?.filename &&
         !tsNodeService.ignored(parent.filename);
       if (attemptPathMapping) {
-        const mappedSpecifiers = tsNodeService.mapPath(request);
+        const mappedSpecifiers = tsNodeService.mapPath(request, parent.filename);
         if (mappedSpecifiers) {
           candidateSpecifiers = [...mappedSpecifiers, request];
         }

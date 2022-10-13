@@ -164,7 +164,10 @@
     "arg": "^4.1.0",
     "create-require": "^1.1.0",
     "diff": "^4.0.1",
+    "find-up": "^5.0.0",
+    "is-path-inside": "^3.0.3",
     "make-error": "^1.1.1",
+    "tsconfig-paths": "^4.1.0",
     "v8-compile-cache-lib": "^3.0.1",
     "yn": "3.1.1"
   },

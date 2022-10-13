@@ -1,132 +1,98 @@
 import type * as ts from 'typescript';
-import { join as joinPath } from 'path';
-import { normalizeSlashes } from './util';
+import * as path from 'path';
+import isPathInside = require('is-path-inside')
+import findUp = require('find-up')
+import tsConfigPaths = require('tsconfig-paths')
+import * as fs from 'fs'
 
 // Path mapper returns a list of mapped specifiers or `null` if the
 // given `specifier` was not mapped.
-type PathMapper = (specifier: string) => string[] | null;
+type PathMapper = (specifier: string, parentPath: string) => string[] | null;
 
 export function createPathMapper(
-  compilerOptions: ts.CompilerOptions
+	compilerOptions: ts.CompilerOptions
 ): PathMapper {
-  if (compilerOptions.baseUrl) {
-    // TODO should only attempt baseUrl / path mapping for non-relative, non-absolute specifiers.
-    // TODO double-check: should `*` default apply if `paths` is specified but it does not specify a `*` mapping?
-    const mappings = Object.entries(
-      compilerOptions.paths ?? { '*': ['*'] }
-    ).map(([patternString, outputs]) => ({
-      pattern: parsePattern(patternString),
-      outputs,
-    }));
-    const mappingConfig = { mappings, baseUrl: compilerOptions.baseUrl };
+	const tsconfigPathToMatchPath: Record<
+		string,
+		// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+		import('tsconfig-paths').MatchPath
+	> = {};
 
-    return function map(specifier: string): string[] | null {
-      return mapPath(mappingConfig, specifier);
-    };
-  } else {
-    return () => null;
-  }
-}
+	if (compilerOptions.baseUrl) {
+		let tsconfigPath: string;
 
-interface MappingConfig {
-  mappings: Mapping[];
-  baseUrl: string;
-}
+		return function map(specifier: string, parentPath: string): string[] | null {
+			const filePathOfImporter = parentPath
 
-interface Mapping {
-  pattern: Pattern;
-  outputs: string[];
-}
+			// Check all the existing parent folders of each known `tsconfig.json` file and see
+			// if the current file's directory falls under a known directory containing a
+			// `tsconfig.json` file
+			for (const knownTsconfigPath of Object.keys(tsconfigPathToMatchPath).sort(
+				(a, b) => a.length - b.length
+			)) {
+				if (isPathInside(filePathOfImporter, path.dirname(knownTsconfigPath))) {
+					tsconfigPath = knownTsconfigPath;
+				}
+			}
 
-type Pattern =
-  | {
-      type: 'wildcard';
-      prefix: string;
-      suffix: string;
-    }
-  | { type: 'static'; value: string };
+			// If we couldn't find an cached `tsconfig.json` which is associated with the current file, then we search for it by finding the nearest `tsconfig.json` in an above directory
+			if (tsconfigPath === undefined) {
+				const tsconfigJsonPath = findUp.sync('tsconfig.json', {
+					cwd: path.dirname(filePathOfImporter),
+				});
+				if (tsconfigJsonPath !== undefined) {
+					const config = tsConfigPaths.loadConfig(tsconfigJsonPath);
+					if (config.resultType === 'failed') {
+						throw new Error('Failed to load tsconfig');
+					}
 
-function mapPath(mappingConfig: MappingConfig, path: string): string[] | null {
-  let bestMatchWeight = -Infinity;
-  let bestMatch: [Mapping, string] | null = null;
+					const { absoluteBaseUrl, paths } = config;
+					let matchPath: tsConfigPaths.MatchPath;
+					if (paths === undefined) {
+						matchPath = () => undefined;
+					} else {
+						matchPath = tsConfigPaths.createMatchPath(absoluteBaseUrl, paths);
+					}
 
-  for (const mapping of mappingConfig.mappings) {
-    if (patternWeight(mapping.pattern) > bestMatchWeight) {
-      const match = matchPattern(mapping.pattern, path);
-      if (match !== null) {
-        bestMatch = [mapping, match];
-        bestMatchWeight = patternWeight(mapping.pattern);
-      }
-    }
-  }
+					tsconfigPathToMatchPath[tsconfigJsonPath] = matchPath;
 
-  if (bestMatch) {
-    const [mapping, match] = bestMatch;
-    return mapping.outputs.map((output) =>
-      normalizeSlashes(
-        joinPath(mappingConfig.baseUrl, output.replace('*', match))
-      )
-    );
-  } else {
-    return null;
-  }
-}
+					tsconfigPath = tsconfigJsonPath;
+				}
+			}
 
-// Return the submatch when the pattern matches.
-//
-// For the wildcard pattern string `a*z` and candidate `afooz` this
-// returns `foo`. For the static pattern `bar` and the candidate `bar`
-// this returns `bar`.
-function matchPattern(pattern: Pattern, candidate: string): string | null {
-  switch (pattern.type) {
-    case 'wildcard':
-      if (
-        candidate.length >= pattern.prefix.length + pattern.suffix.length &&
-        candidate.startsWith(pattern.prefix) &&
-        candidate.endsWith(pattern.suffix)
-      ) {
-        return candidate.substring(
-          pattern.prefix.length,
-          candidate.length - pattern.suffix.length
-        );
-      } else {
-        return null;
-      }
-    case 'static':
-      if (pattern.value === candidate) {
-        return candidate;
-      } else {
-        return null;
-      }
-  }
-}
+			let matchPath: tsConfigPaths.MatchPath;
+			if (tsconfigPath === undefined) {
+				const config = tsConfigPaths.loadConfig();
+				if (config.resultType === 'failed') {
+					throw new Error('Failed to load tsconfig');
+				}
 
-// Pattern weight to sort best matches.
-//
-// Static patterns have the highest weight. For wildcard patterns the
-// weight is determined by the length of the prefix before the glob
-// `*`.
-function patternWeight(pattern: Pattern): number {
-  if (pattern.type === 'wildcard') {
-    return pattern.prefix.length;
-  } else {
-    return Infinity;
-  }
-}
+				const { paths, absoluteBaseUrl } = config;
+				if (paths === undefined) {
+					matchPath = () => undefined;
+				} else {
+					matchPath = tsConfigPaths.createMatchPath(absoluteBaseUrl, paths);
+				}
+			} else {
+				matchPath = tsconfigPathToMatchPath[tsconfigPath]!;
+			}
 
-function parsePattern(patternString: string): Pattern {
-  const indexOfStar = patternString.indexOf('*');
-  if (indexOfStar === -1) {
-    return { type: 'static', value: patternString };
-  }
 
-  if (patternString.indexOf('*', indexOfStar + 1) !== -1) {
-    throw new Error(`Path pattern ${patternString} contains two wildcards '*'`);
-  }
+			const extensions = ['.js', '.ts', '.jsx', '.tsx', '.json'];
 
-  return {
-    type: 'wildcard',
-    prefix: patternString.substring(0, indexOfStar),
-    suffix: patternString.substring(indexOfStar + 1),
-  };
+			for (const extension of extensions) {
+				const fileMatchPath = matchPath(specifier);
+				if (fileMatchPath !== undefined) {
+					const filePath = `${fileMatchPath}${extension}`;
+					if (fs.existsSync(filePath)) {
+						return [filePath];
+					}
+				}
+			}
+
+			return null
+		};
+	} else {
+		return () => null;
+	}
 }
