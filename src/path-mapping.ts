@@ -10,89 +10,106 @@ import * as fs from 'fs'
 type PathMapper = (specifier: string, parentPath: string) => string[] | null;
 
 export function createPathMapper(
-	compilerOptions: ts.CompilerOptions
+  compilerOptions: ts.CompilerOptions
 ): PathMapper {
-	const tsconfigPathToMatchPath: Record<
-		string,
-		// eslint-disable-next-line @typescript-eslint/consistent-type-imports
-		import('tsconfig-paths').MatchPath
-	> = {};
+  const tsconfigPathToMatchPath: Record<
+    string,
+    // eslint-disable-next-line @typescript-eslint/consistent-type-imports
+    import('tsconfig-paths').MatchPath
+  > = {};
 
-	if (compilerOptions.baseUrl) {
-		let tsconfigPath: string;
+  if (compilerOptions.baseUrl) {
+    return function map(specifier: string, parentPath: string): string[] | null {
+      console.log(specifier, parentPath)
+      let tsconfigPath: string | undefined;
 
-		return function map(specifier: string, parentPath: string): string[] | null {
-			const filePathOfImporter = parentPath
+      const filePathOfImporter = parentPath
 
-			// Check all the existing parent folders of each known `tsconfig.json` file and see
-			// if the current file's directory falls under a known directory containing a
-			// `tsconfig.json` file
-			for (const knownTsconfigPath of Object.keys(tsconfigPathToMatchPath).sort(
-				(a, b) => a.length - b.length
-			)) {
-				if (isPathInside(filePathOfImporter, path.dirname(knownTsconfigPath))) {
-					tsconfigPath = knownTsconfigPath;
-				}
-			}
+      // Check all the existing parent folders of each known `tsconfig.json` file and see
+      // if the current file's directory falls under a known directory containing a
+      // `tsconfig.json` file
+      for (const knownTsconfigPath of Object.keys(tsconfigPathToMatchPath).sort(
+        (a, b) => a.length - b.length
+      )) {
+        if (isPathInside(filePathOfImporter, path.dirname(knownTsconfigPath))) {
+          tsconfigPath = knownTsconfigPath;
+        }
+      }
 
-			// If we couldn't find an cached `tsconfig.json` which is associated with the current file, then we search for it by finding the nearest `tsconfig.json` in an above directory
-			if (tsconfigPath === undefined) {
-				const tsconfigJsonPath = findUp.sync('tsconfig.json', {
-					cwd: path.dirname(filePathOfImporter),
-				});
-				if (tsconfigJsonPath !== undefined) {
-					const config = tsConfigPaths.loadConfig(tsconfigJsonPath);
-					if (config.resultType === 'failed') {
-						throw new Error('Failed to load tsconfig');
-					}
+      // If we couldn't find an cached `tsconfig.json` which is associated with the current file, then we search for it by finding the nearest `tsconfig.json` in an above directory
+      if (tsconfigPath === undefined) {
+        const tsconfigJsonPath = findUp.sync('tsconfig.json', {
+          cwd: path.dirname(filePathOfImporter),
+        });
+        if (tsconfigJsonPath !== undefined) {
+          const config = tsConfigPaths.loadConfig(tsconfigJsonPath);
+          if (config.resultType === 'failed') {
+            throw new Error('Failed to load tsconfig');
+          }
 
-					const { absoluteBaseUrl, paths } = config;
-					let matchPath: tsConfigPaths.MatchPath;
-					if (paths === undefined) {
-						matchPath = () => undefined;
-					} else {
-						matchPath = tsConfigPaths.createMatchPath(absoluteBaseUrl, paths);
-					}
+          const { absoluteBaseUrl, paths } = config;
+          let matchPath: tsConfigPaths.MatchPath;
+          if (paths === undefined) {
+            matchPath = () => undefined;
+          } else {
+            matchPath = tsConfigPaths.createMatchPath(absoluteBaseUrl, paths);
+          }
 
-					tsconfigPathToMatchPath[tsconfigJsonPath] = matchPath;
+          tsconfigPathToMatchPath[tsconfigJsonPath] = matchPath;
 
-					tsconfigPath = tsconfigJsonPath;
-				}
-			}
+          tsconfigPath = tsconfigJsonPath;
+        }
+      }
 
-			let matchPath: tsConfigPaths.MatchPath;
-			if (tsconfigPath === undefined) {
-				const config = tsConfigPaths.loadConfig();
-				if (config.resultType === 'failed') {
-					throw new Error('Failed to load tsconfig');
-				}
+      let matchPath: tsConfigPaths.MatchPath;
+      if (tsconfigPath === undefined) {
+        const config = tsConfigPaths.loadConfig();
+        if (config.resultType === 'failed') {
+          throw new Error('Failed to load tsconfig');
+        }
 
-				const { paths, absoluteBaseUrl } = config;
-				if (paths === undefined) {
-					matchPath = () => undefined;
-				} else {
-					matchPath = tsConfigPaths.createMatchPath(absoluteBaseUrl, paths);
-				}
-			} else {
-				matchPath = tsconfigPathToMatchPath[tsconfigPath]!;
-			}
+        const { paths, absoluteBaseUrl } = config;
+        if (paths === undefined) {
+          matchPath = () => undefined;
+        } else {
+          matchPath = tsConfigPaths.createMatchPath(absoluteBaseUrl, paths);
+        }
+      } else {
+        matchPath = tsconfigPathToMatchPath[tsconfigPath]!;
+      }
 
+      const extensions: Record<string, string[]> = {
+        '.js': ['.js', '.ts'],
+        '.jsx': ['.jsx', '.tsx'],
+        '.cjs': ['.cjs', '.cts'],
+        '.mjs': ['.mjs', '.mts'],
+        '.json': ['.json']
+      }
 
-			const extensions = ['.js', '.ts', '.jsx', '.tsx', '.json'];
+      let specifierExtension = path.parse(specifier).ext
+      let extensionsToCheck: string[] = ['.js', '.ts', '.jsx', '.tsx', '.cjs', '.cts', '.mjs', '.mts', '.json']
+      let fileMatchPath: string | undefined;
 
-			for (const extension of extensions) {
-				const fileMatchPath = matchPath(specifier);
-				if (fileMatchPath !== undefined) {
-					const filePath = `${fileMatchPath}${extension}`;
-					if (fs.existsSync(filePath)) {
-						return [filePath];
-					}
-				}
-			}
+      if (Object.keys(extensions).includes(specifierExtension)) {
+        extensionsToCheck = extensions[specifierExtension]
+        const trimmedSpecifier = specifier.slice(0, specifier.length - specifierExtension.length)
+        fileMatchPath = matchPath(trimmedSpecifier);
+      } else {
+        fileMatchPath = matchPath(specifier)
+      }
 
-			return null
-		};
-	} else {
-		return () => null;
-	}
+      if (fileMatchPath !== undefined) {
+        for (const extension of extensionsToCheck) {
+          const filePath = `${fileMatchPath}${extension}`;
+          if (fs.existsSync(filePath)) {
+            return [filePath];
+          }
+        }
+      }
+
+      return null
+    };
+  } else {
+    return () => null;
+  }
 }
