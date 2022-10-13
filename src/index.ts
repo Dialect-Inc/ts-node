@@ -918,7 +918,7 @@ export function createFromPreloadedConfig(
     patterns: options.moduleTypes,
   });
 
-	const extensions = getExtensions(config, options, ts.version);
+  const extensions = getExtensions(config, options, ts.version);
 
   // Use full language services when the fast option is disabled.
   if (!transpileOnly) {
@@ -1039,7 +1039,7 @@ export function createFromPreloadedConfig(
         }
       };
 
-			let previousProgram: _ts.Program | undefined = undefined;
+      let previousProgram: _ts.Program | undefined = undefined;
 
       getOutput = (code: string, fileName: string) => {
         updateMemoryCache(code, fileName);
@@ -1051,21 +1051,21 @@ export function createFromPreloadedConfig(
           );
         }
 
-				const output = service.getEmitOutput(fileName);
+        const output = service.getEmitOutput(fileName);
 
         // Get the relevant diagnostics - this is 3x faster than `getPreEmitDiagnostics`.
         const diagnostics = service
           .getSemanticDiagnostics(fileName)
           .concat(service.getSyntacticDiagnostics(fileName));
 
-				const programAfter = service.getProgram();
+        const programAfter = service.getProgram();
 
         debug(
           'invariant: Is service.getProject() identical before and after getting emit output and diagnostics? (should always be true) ',
           programBefore === programAfter
         );
 
-				previousProgram = programAfter;
+        previousProgram = programAfter;
 
         const diagnosticList = filterDiagnostics(
           diagnostics,
@@ -1201,7 +1201,7 @@ export function createFromPreloadedConfig(
         let outText = '';
         let outMap = '';
 
-				updateMemoryCache(code, fileName);
+        updateMemoryCache(code, fileName);
 
         const sourceFile = builderProgram.getSourceFile(fileName);
         if (!sourceFile)
@@ -1269,7 +1269,7 @@ export function createFromPreloadedConfig(
         const checker = builderProgram.getProgram().getTypeChecker();
         const symbol = checker.getSymbolAtLocation(node);
 
-				if (!symbol) return { name: '', comment: '' };
+        if (!symbol) return { name: '', comment: '' };
 
         const type = checker.getTypeOfSymbolAtLocation(symbol, node);
         const signatures = [
@@ -1460,7 +1460,7 @@ export function createFromPreloadedConfig(
     });
   }
 
-	const mapPath = createPathMapper(config.options);
+  const mapPath = createPathMapper(config.options);
 
   const getNodeEsmResolver = once(() =>
     (
@@ -1578,14 +1578,14 @@ function registerExtension(
   service: Service,
   originalHandler: (m: NodeModule, filename: string) => any
 ) {
-	const old = require.extensions[ext] || originalHandler;
+  const old = require.extensions[ext] || originalHandler;
 
   require.extensions[ext] = function (m: any, filename) {
     if (service.ignored(filename)) return old(m, filename);
 
-		assertScriptCanLoadAsCJS(service, m, filename);
+    assertScriptCanLoadAsCJS(service, m, filename);
 
-		const _compile = m._compile;
+    const _compile = m._compile;
 
     m._compile = function (code: string, fileName: string) {
       debug('module._compile', fileName);
@@ -1656,8 +1656,8 @@ function updateOutput(
     );
   }
 
-	return `${outputText}\n${sourceMapContent}`;
-
+  return `${outputText}\n${sourceMapContent}`;
+}
 
 /**
  * Update the source map contents for improved output.
@@ -1697,7 +1697,7 @@ function getTokenAtPosition(
   sourceFile: _ts.SourceFile,
   position: number
 ): _ts.Node {
-	let current: _ts.Node = sourceFile;
+  let current: _ts.Node = sourceFile;
 
   outer: while (true) {
     for (const child of current.getChildren(sourceFile)) {
@@ -1728,8 +1728,8 @@ function getTokenAtPosition(
  * @category ESM Loader
  */
 export const createEsmHooks: typeof createEsmHooksFn = (
-	tsNodeService: Service
-   => (require('./esm') as typeof import('./esm')).createEsmHooks(tsNodeService);
+  tsNodeService: Service
+) => (require('./esm') as typeof import('./esm')).createEsmHooks(tsNodeService);
 
 /**
  * When using `module: nodenext` or `module: node12`, there are two possible styles of emit depending in file extension or package.json "type":
