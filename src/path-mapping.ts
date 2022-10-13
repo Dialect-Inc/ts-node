@@ -20,7 +20,6 @@ export function createPathMapper(
 
   if (compilerOptions.baseUrl) {
     return function map(specifier: string, parentPath: string): string[] | null {
-      console.log(specifier, parentPath)
       let tsconfigPath: string | undefined;
 
       const filePathOfImporter = parentPath
