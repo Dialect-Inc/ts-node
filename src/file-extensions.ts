@@ -77,7 +77,7 @@ export function getExtensions(
   const compiledJsUnsorted: string[] = ['.ts'];
   const compiledJsxUnsorted: string[] = [];
 
-  if (config.options.jsx) compiledJsxUnsorted.push('.tsx');
+  /* if (config.options.jsx) */ compiledJsxUnsorted.push('.tsx');
   if (tsSupportsMtsCtsExts) compiledJsUnsorted.push('.mts', '.cts');
   if (config.options.allowJs) {
     compiledJsUnsorted.push('.js');

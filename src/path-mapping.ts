@@ -86,29 +86,62 @@ export function createPathMapper(
       }
 
       let specifierExtension = path.parse(specifier).ext
-      let extensionsToCheck: string[] = ['.js', '.ts', '.jsx', '.tsx', '.cjs', '.cts', '.mjs', '.mts', '.json']
+      let recognizedExtensions = new Set(['.js', '.ts', '.jsx', '.tsx', '.cjs', '.cts', '.mjs', '.mts', '.json'])
       let fileMatchPath: string | undefined;
 
-      if (Object.keys(extensions).includes(specifierExtension)) {
-        extensionsToCheck = extensions[specifierExtension]
-        const trimmedSpecifier = specifier.slice(0, specifier.length - specifierExtension.length)
-        fileMatchPath = matchPath(trimmedSpecifier);
-      } else {
-        fileMatchPath = matchPath(specifier)
-      }
+			const extensionsToCheck = extensions[specifierExtension] ?? recognizedExtensions
+			const trimmedSpecifier = specifier.replace(/\.[^/.]+$/, "")
+			fileMatchPath = matchPath(trimmedSpecifier) ?? matchPath(specifier);
+			const log = (...args: any[]) => {
+			if (specifier === '~/utils/page') {
+				fs.appendFileSync('/Users/leondreamed/log.txt', JSON.stringify(args))
+			}
+			}
 
-      if (fileMatchPath !== undefined) {
-        for (const extension of extensionsToCheck) {
-          const filePath = `${fileMatchPath}${extension}`;
-          if (fs.existsSync(filePath)) {
-            return [filePath];
-          }
-        }
-      }
+      if (fileMatchPath === undefined) {
+				// For unknown specifiers, we use a stub
+				if (
+					!specifier.startsWith('../') &&
+					!specifier.startsWith('./') &&
+					specifier !== '.' &&
+					specifier !== '..' &&
+					specifierExtension !== '' &&
+					!recognizedExtensions.has(specifierExtension) &&
+					specifierExtension !== '.server' &&
+					specifierExtension !== '.client'
+				) {
+					log('stub')
+					return [path.join(__dirname, '../stub.cjs')]
+				} else {
+					log('null 1')
+					return null
+				}
+			}
 
-      return null
+			for (const extension of extensionsToCheck) {
+				const filePath = `${fileMatchPath}${extension}`;
+				if (fs.existsSync(filePath)) {
+					log('succ', filePath)
+					return [filePath];
+				}
+			}
+
+			for (const extension of extensionsToCheck) {
+				const filePathIndex = `${fileMatchPath}/index${extension}`;
+				if (fs.existsSync(filePathIndex)) {
+					log('succ2', filePathIndex)
+					return [filePathIndex];
+				}
+			}
+
+					log('fail')
+			return null
     };
   } else {
-    return () => null;
+    return (...args) => {
+
+				fs.appendFileSync('/Users/leondreamed/log.txt', 'bruh\n' + JSON.stringify(args))
+			return null}
+			;
   }
 }
