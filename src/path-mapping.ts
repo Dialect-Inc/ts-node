@@ -92,11 +92,6 @@ export function createPathMapper(
 			const extensionsToCheck = extensions[specifierExtension] ?? recognizedExtensions
 			const trimmedSpecifier = specifier.replace(/\.[^/.]+$/, "")
 			fileMatchPath = matchPath(trimmedSpecifier) ?? matchPath(specifier);
-			const log = (...args: any[]) => {
-			if (specifier === '~/utils/page') {
-				fs.appendFileSync('/Users/leondreamed/log.txt', JSON.stringify(args))
-			}
-			}
 
       if (fileMatchPath === undefined) {
 				// For unknown specifiers, we use a stub
@@ -110,10 +105,8 @@ export function createPathMapper(
 					specifierExtension !== '.server' &&
 					specifierExtension !== '.client'
 				) {
-					log('stub')
 					return [path.join(__dirname, '../stub.cjs')]
 				} else {
-					log('null 1')
 					return null
 				}
 			}
@@ -121,7 +114,6 @@ export function createPathMapper(
 			for (const extension of extensionsToCheck) {
 				const filePath = `${fileMatchPath}${extension}`;
 				if (fs.existsSync(filePath)) {
-					log('succ', filePath)
 					return [filePath];
 				}
 			}
@@ -129,19 +121,13 @@ export function createPathMapper(
 			for (const extension of extensionsToCheck) {
 				const filePathIndex = `${fileMatchPath}/index${extension}`;
 				if (fs.existsSync(filePathIndex)) {
-					log('succ2', filePathIndex)
 					return [filePathIndex];
 				}
 			}
 
-					log('fail')
 			return null
     };
   } else {
-    return (...args) => {
-
-				fs.appendFileSync('/Users/leondreamed/log.txt', 'bruh\n' + JSON.stringify(args))
-			return null}
-			;
+    return () => null
   }
 }
