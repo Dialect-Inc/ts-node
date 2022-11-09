@@ -93,21 +93,7 @@ export function createPathMapper(
     fileMatchPath = matchPath(trimmedSpecifier) ?? matchPath(specifier);
 
     if (fileMatchPath === undefined) {
-      // For unknown specifiers, we use a stub
-      if (
-        !specifier.startsWith('../') &&
-        !specifier.startsWith('./') &&
-        specifier !== '.' &&
-        specifier !== '..' &&
-        specifierExtension !== '' &&
-        !recognizedExtensions.has(specifierExtension) &&
-        specifierExtension !== '.server' &&
-        specifierExtension !== '.client'
-      ) {
-        return [path.join(__dirname, '../stub.cjs')]
-      } else {
-        return null
-      }
+			return null
     }
 
     for (const extension of extensionsToCheck) {
