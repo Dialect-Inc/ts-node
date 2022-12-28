@@ -525,6 +525,7 @@ function finalizeEsmResolution(resolved, parentPath, pkgPath) {
   if (RegExpPrototypeTest(encodedSepRegEx, resolved))
     throw new ERR_INVALID_MODULE_SPECIFIER(
       resolved, 'must not include encoded "/" or "\\" characters', parentPath);
+  resolved = resolved.resolved ?? resolved
   const filename = fileURLToPath(resolved);
   const actual = tryReplacementExtensions(filename) || tryFile(filename);
   if (actual)
