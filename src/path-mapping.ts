@@ -48,7 +48,7 @@ export function createPathMapper(
 
         const { absoluteBaseUrl, paths } = config;
         let matchPath: tsConfigPaths.MatchPath;
-        if (paths === undefined) {
+        if (Object.keys(paths).length === 0) {
           matchPath = () => undefined;
         } else {
           matchPath = tsConfigPaths.createMatchPath(absoluteBaseUrl, paths);
@@ -72,6 +72,8 @@ export function createPathMapper(
       } else {
         matchPath = tsConfigPaths.createMatchPath(absoluteBaseUrl, paths);
       }
+    } else {
+      matchPath = tsconfigPathToMatchPath[tsconfigPath]!;
     }
 
     const extensions: Record<string, string[]> = {
