@@ -73,7 +73,7 @@ export function createPathMapper(
         matchPath = tsConfigPaths.createMatchPath(absoluteBaseUrl, paths);
       }
     } else {
-      matchPath = tsconfigPathToMatchPath[tsconfigPath]!;
+      matchPath = tsconfigPathToMatchPath[tsconfigPath] ?? (() => undefined)
     }
 
     const extensions: Record<string, string[]> = {
