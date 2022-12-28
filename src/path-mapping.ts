@@ -31,6 +31,7 @@ export function createPathMapper(
     )) {
       if (isPathInside(filePathOfImporter, path.dirname(knownTsconfigPath))) {
         tsconfigPath = knownTsconfigPath;
+				break;
       }
     }
 
@@ -51,9 +52,8 @@ export function createPathMapper(
           matchPath = () => undefined;
         } else {
           matchPath = tsConfigPaths.createMatchPath(absoluteBaseUrl, paths);
+					tsconfigPathToMatchPath[tsconfigJsonPath] = matchPath;
         }
-
-        tsconfigPathToMatchPath[tsconfigJsonPath] = matchPath;
 
         tsconfigPath = tsconfigJsonPath;
       }
@@ -72,8 +72,6 @@ export function createPathMapper(
       } else {
         matchPath = tsConfigPaths.createMatchPath(absoluteBaseUrl, paths);
       }
-    } else {
-      matchPath = tsconfigPathToMatchPath[tsconfigPath]!;
     }
 
     const extensions: Record<string, string[]> = {
