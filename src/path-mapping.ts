@@ -23,6 +23,11 @@ export function createPathMapper(
 
     const filePathOfImporter = parentPath
 
+		// We don't want to mess with paths that are in `node_modules`
+		if (parentPath.includes('/node_modules/')) {
+			return null
+		}
+
     // Check all the existing parent folders of each known `tsconfig.json` file and see
     // if the current file's directory falls under a known directory containing a
     // `tsconfig.json` file
